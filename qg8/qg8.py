@@ -327,7 +327,7 @@ def np2array(ndarray, dtype_id):
     return array(typecode, ndarray.astype(dtype).tobytes())
 
 
-def ijv_to_qg8_tensor(indices, values, dims, packing: int = QG8_PACKING_FULL, dtype=None):
+def ijv_to_qg8_tensor(indices, values, dims, packing: int = QG8_PACKING_SPARSE_COO, dtype=None):
     """
     Convert tensor data in ijv format to a qg8_tensor. Uses numpy arrays as an intermediate format for type conversion
     if dtype is not set, it will be automatically determined from the numpy dtype
