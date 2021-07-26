@@ -35,6 +35,8 @@ dtype = 'int64'
 test = {"description": "TEST1: Constant integer saved as rank 1 tensor " + dtype,
         "first_val": np.array(data, dtype),
         "last_val": np.array(data, dtype),
+        "type": QG8_TYPE_CONSTANT,
+        "packing": QG8_PACKING_SPARSE_COO,
         "string_id": "constant",
         "dtype": dtype,
         "itype": 'uint8',
@@ -42,7 +44,7 @@ test = {"description": "TEST1: Constant integer saved as rank 1 tensor " + dtype
         "bytes": 16 + 8 + 2
         }
 
-chunk = qg8_chunk_create(QG8_TYPE_CONSTANT, tensor=from_numpy(data, dtype=dtype), string_id=test["string_id"])
+chunk = qg8_chunk_create(test["type"], tensor=from_numpy(data, dtype=dtype, packing=test["packing"]), string_id=test["string_id"])
 qg8_graph_add_chunk(graph, chunk)
 tests.append(test)
 
@@ -53,6 +55,8 @@ dtype = 'uint8'
 test = {"description": "TEST2: large 1D boolean array (2**16 elements) saved as sparse tensor " + dtype,
         "first_val": np.array(data[data!=0].item(0), dtype),
         "last_val": np.array(data[data!=0].item(-1), dtype),
+        "type": QG8_TYPE_CONSTANT,
+        "packing": QG8_PACKING_SPARSE_COO,
         "string_id": "1D sparse array",
         "dtype": dtype,
         "itype": 'uint32',
@@ -60,7 +64,7 @@ test = {"description": "TEST2: large 1D boolean array (2**16 elements) saved as 
         "bytes": 16 + 1*np.count_nonzero(data) + 4*(np.count_nonzero(data)+1)*len(data.shape)
         }
 
-chunk = qg8_chunk_create(QG8_TYPE_CONSTANT, tensor=from_numpy(data), string_id=test["string_id"])
+chunk = qg8_chunk_create(test["type"], tensor=from_numpy(data, packing=test["packing"]), string_id=test["string_id"])
 qg8_graph_add_chunk(graph, chunk)
 tests.append(test)
 
@@ -71,13 +75,15 @@ dtype = 'float32'
 test = {"description": "TEST3: large 2D array of zeros (256 x 256 elements) saved as dense tensor " + dtype,
         "first_val": np.array(data.item(0), dtype),
         "last_val": np.array(data.item(-1), dtype),
+        "type": QG8_TYPE_CONSTANT,
+        "packing": QG8_PACKING_FULL,
         "string_id": "2D dense array",
         "dtype": dtype,
         "itype": 'uint16',
         "dims": data.shape,
         "bytes": 16 + 4*data.size + 2*(data.size+1)*len(data.shape)
         }
-chunk = qg8_chunk_create(QG8_TYPE_CONSTANT, tensor=from_numpy(data, dtype=dtype, packing=QG8_PACKING_FULL), string_id=test["string_id"])
+chunk = qg8_chunk_create(test["type"], tensor=from_numpy(data, dtype=dtype, packing=test["packing"]), string_id=test["string_id"])
 qg8_graph_add_chunk(graph, chunk)
 tests.append(test)
 
@@ -88,13 +94,15 @@ dtype = 'uint16'
 test = {"description": "TEST4: rank 6 tensor saved in sparse format " + dtype + ", without a label",
         "first_val": np.array(data[data!=0].item(0), dtype),
         "last_val": np.array(data[data!=0].item(-1), dtype),
+        "type": QG8_TYPE_CONSTANT,
+        "packing": QG8_PACKING_SPARSE_COO,
         "string_id": None,
         "dtype": dtype,
         "itype": 'uint8',
         "dims": data.shape,
         "bytes": 16 + 2*np.count_nonzero(data) + 1*(np.count_nonzero(data)+1)*len(data.shape)
         }
-chunk = qg8_chunk_create(QG8_TYPE_CONSTANT, tensor=from_numpy(data, dtype=dtype), string_id=test["string_id"])
+chunk = qg8_chunk_create(test["type"], tensor=from_numpy(data, dtype=dtype, packing=test["packing"]), string_id=test["string_id"])
 qg8_graph_add_chunk(graph, chunk)
 tests.append(test)
 
@@ -105,13 +113,15 @@ dtype = 'complex128'
 test = {"description": "TEST5: complex tensor saved in sparse format " + dtype + ", with dangerous label",
         "first_val": np.array(data[data!=0].item(0), dtype),
         "last_val": np.array(data[data!=0].item(-1), dtype),
+        "type": QG8_TYPE_INPUT,
+        "packing": QG8_PACKING_SPARSE_COO,
         "string_id": "~this\label%is!too long",
         "dtype": dtype,
         "itype": 'uint8',
         "dims": data.shape,
         "bytes": 16 + 16*np.count_nonzero(data) + 1*(np.count_nonzero(data)+1)*len(data.shape)
         }
-chunk = qg8_chunk_create(QG8_TYPE_INPUT, tensor=from_numpy(data, dtype=dtype), string_id=test["string_id"])
+chunk = qg8_chunk_create(test["type"], tensor=from_numpy(data, dtype=dtype, packing=test["packing"]), string_id=test["string_id"])
 qg8_graph_add_chunk(graph, chunk)
 tests.append(test)
 
@@ -142,6 +152,14 @@ def run_test(t,chunk):
         last_val = chunk.tensor.re[-1]
     print(t["last_val"], "-> ", last_val)
     assert t["last_val"] == last_val
+
+    print("type:       ", end="")
+    print(t["type"], "-> ", chunk.type)
+    assert t["type"] == chunk.type
+
+    print("packing:       ", end="")
+    print(t["packing"], "-> ", chunk.tensor.packing)
+    assert t["packing"] == chunk.tensor.packing
 
     print("dtype:       ", end="")
     print(t["dtype"], "-> ", chunk.tensor.dtype)
