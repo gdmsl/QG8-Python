@@ -52,11 +52,15 @@ def sum(qg8_node):
         print("Could not sum arrays at node: " + str(qg8_node))
         qg8_node.outdata = data[0]
 
+
 def matmul(qg8_node):
     """
-    matrix product of two nodes 'a @ b'
+    External product between node outputs (dot product)
+
+    Computes the product `a @ b @ c @ ...`
     """
-    qg8_node.outdata = qg8_node.input_nodes[0].outdata @ qg8_node.input_nodes[1].outdata
+    data = [node.outdata for node in qg8_node.input_nodes]
+    functools.reduce(np.dot, data)
 
 
 def multiply(qg8_node):
