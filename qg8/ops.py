@@ -23,6 +23,7 @@
 from qutip import *
 import numpy as np
 from qg8.constants import *
+import functools
 
 """
 This file contains instructions for processing qg8 op nodes called from the 
@@ -56,6 +57,14 @@ def matmul(qg8_node):
     matrix product of two nodes 'a @ b'
     """
     qg8_node.outdata = qg8_node.input_nodes[0].outdata @ qg8_node.input_nodes[1].outdata
+
+
+def multiply(qg8_node):
+    """
+    Element-wise multiplication between node outputs (Hadamand product)
+    """
+    data = [node.outdata for node in qg8_node.input_nodes]
+    functools.reduce(np.multiply, data)
 
 
 def join(qg8_node):
@@ -173,4 +182,5 @@ register_type(QG8_TYPE_MATMUL, matmul)
 register_type(QG8_TYPE_JOIN, join)
 register_type(QG8_TYPE_EXPECTATIONVALUE, expectationvalue)
 register_type(QG8_TYPE_SOLVEQUTIP, solvequtip)
+register_type(QG8_TYPE_MULTIPLY, multiply)
 register_type(QG8_TYPE_OUTPUT, output)
