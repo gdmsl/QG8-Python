@@ -439,7 +439,7 @@ def run(qg8_graph, end_node=None):
     nodes_sorted = topology_sort(end_node)
     for node in nodes_sorted:
         forward(node)
-    return end_node.output
+    return end_node.outdata
 
 
 def node_types():

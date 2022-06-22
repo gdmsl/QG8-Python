@@ -63,6 +63,7 @@ QG8_TYPE_JOIN = 13
 QG8_TYPE_SOLVE = 14
 QG8_TYPE_EXPECTATIONVALUE = 15
 QG8_TYPE_SAMPLE = 16
+QG8_TYPE_OUTPUT = 19
 
 QG8_TYPE_SOLVEQUTIP = 33
 
@@ -123,5 +124,4 @@ def dtype_to_char(dtype_id:int):
         return 'f'
     if dtype_id == QG8_DTYPE_COMPLEX128:
         return 'd'
-
 

@@ -27,7 +27,7 @@ from qg8.constants import *
 """
 This file contains instructions for processing qg8 op nodes called from the 
 qg8.run() method. Each function takes a QG8Node object and processes them to
-set the .output attribute depending on its assigned input nodes.
+set the .outdata attribute depending on its assigned input nodes.
 
 Arithmetic in this script is performed using the Numpy library and therefore
 does not take fully advantage of the sparse format of qg8 tensors.
@@ -40,27 +40,26 @@ def add(qg8_node):
     """
     element-wise addition of several nodes
     """
-    qg8_node.output = sum([n.output for n in qg8_node.input_nodes])
+    qg8_node.outdata = sum([n.outdata for n in qg8_node.input_nodes])
 
 
 def sum(qg8_node):
-    data = [node.output for node in qg8_node.input_nodes]
+    data = [node.outdata for node in qg8_node.input_nodes]
     try:
-        qg8_node.output = sum(data)
+        qg8_node.outdata = sum(data)
     except:
         print("Could not sum arrays at node: " + str(qg8_node))
-        qg8_node.output = data[0]
-
+        qg8_node.outdata = data[0]
 
 def matmul(qg8_node):
     """
     matrix product of two nodes 'a @ b'
     """
-    qg8_node.output = qg8_node.input_nodes[0].output @ qg8_node.input_nodes[1].output
+    qg8_node.outdata = qg8_node.input_nodes[0].outdata @ qg8_node.input_nodes[1].outdata
 
 
 def join(qg8_node):
-    qg8_node.output = [node.output for node in qg8_node.input_nodes]
+    qg8_node.outdata = [node.outdata for node in qg8_node.input_nodes]
 
 
 def solvequtip(qg8_node):
@@ -77,20 +76,20 @@ def solvequtip(qg8_node):
         h1, h2, ... : half-Hermitian operators (rank 2 tensor nodes)
         c1, c2, ... : time-dependent coefficients (rank 1 tensor nodes)
 
-    Upon running the graph, this function updates qg8_node.output with a
+    Upon running the graph, this function updates qg8_node.outdata with a
     complex valued 2D matrix representing the quantum state at each time point
     (vertically stacked)
     """
 
-    psi0 = Qobj(qg8_node.input_nodes[0].output)
-    operators = [hamiltonian_term.output[0]
+    psi0 = Qobj(qg8_node.input_nodes[0].outdata)
+    operators = [hamiltonian_term.outdata[0]
                  for hamiltonian_term in qg8_node.input_nodes[2::]]
     packing = [hamiltonian_term.input_nodes[0].tensor.packing
                for hamiltonian_term in qg8_node.input_nodes[2::]]
-    coeffs = [hamiltonian_term.output[1]
+    coeffs = [hamiltonian_term.outdata[1]
               for hamiltonian_term in qg8_node.input_nodes[2::]]
 
-    times = qg8_node.input_nodes[1].output.astype('float64')  # from the first track
+    times = qg8_node.input_nodes[1].outdata.astype('float64')  # from the first track
 
     ops = []  # Build Qutip QobjEvo object
 
@@ -105,20 +104,20 @@ def solvequtip(qg8_node):
     options = Options(max_step=times[1] - times[0])
 
     result = sesolve(H, psi0, times, options=options).states
-    qg8_node.output = np.vstack([psi.full().T for psi in result])
+    qg8_node.outdata = np.vstack([psi.full().T for psi in result])
 
 
 def expectationvalue(qg8_node):
     """
     returns a 1D tensor of expectation values
     """
-    psi = qg8_node.input_nodes[0].output
-    op = qg8_node.input_nodes[1].output
+    psi = qg8_node.input_nodes[0].outdata
+    op = qg8_node.input_nodes[1].outdata
 
     expec = np.zeros(len(psi))
     for t,p in enumerate(psi):
         expec[t] = np.real(p.conjugate() @ op @ p.T)
-    qg8_node.output = expec
+    qg8_node.outdata = expec
 
 
 def to_numpy(qg8_tensor):
@@ -138,7 +137,7 @@ def to_numpy(qg8_tensor):
 
 # Process tensor nodes
 def input(qg8_node):
-    qg8_node.output = to_numpy(qg8_node.tensor)
+    qg8_node.outdata = to_numpy(qg8_node.tensor)
 
 def adjacencymatrix(qg8_node): input(qg8_node)
 
@@ -154,9 +153,9 @@ def time(qg8_node): input(qg8_node)
 
 def track(qg8_node): input(qg8_node)
 
+def output(qg8_node): join(qg8_node)
 
 type_registry = {}
-
 
 def register_type(node_type, func):
     """bidirectional dictionary"""
@@ -174,3 +173,4 @@ register_type(QG8_TYPE_MATMUL, matmul)
 register_type(QG8_TYPE_JOIN, join)
 register_type(QG8_TYPE_EXPECTATIONVALUE, expectationvalue)
 register_type(QG8_TYPE_SOLVEQUTIP, solvequtip)
+register_type(QG8_TYPE_OUTPUT, output)
