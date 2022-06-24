@@ -63,14 +63,15 @@ class qg8_graph():
     """
     Parent class for QG8 graphs as a container for a collection of qg8_node() objects.
     """
-    def __init__(self, chunks=[]):
+    def __init__(self, adj_chunk, chunks=[]):
+        self.adj = adj
         self.chunks = chunks
 
     def datasize(self):
         """
         Size of the graph in bytes
         """
-        return sum([chunk.datasize() for chunk in self.chunks]) + 16
+        return self.adj.datasize() + sum([chunk.datasize() for chunk in self.chunks]) + 16
 
 
 class qg8_iter():
@@ -825,18 +826,31 @@ def qg8_graph_load(filename: str):
     if f is None:
         return None
 
-    graph = qg8_graph([])  # create empty graph object
+    adj = None
 
     i = qg8_file_iterator(f)
+    while qg8_file_has_next(i):
+        chunk = qg8_file_extract(i)
+        if chunk is None:
+            return None
+        if qg8_chunk_get_type(chunk) != QG8_TYPE_ADJACENCY:
+            continue
+        adj = chunk
+
+    if adj == None:
+        raise IOError("File has no chunk of ADJACENCY type for graph")
+
+    chunks = []
+
     while qg8_file_has_next(i):  # EOF check
         chunk = qg8_file_extract(i)
         if chunk is None:
             return None
-        graph.chunks.append(chunk)
+        chunks.append(chunk)
 
     qg8_file_close(f)
 
-    return graph
+    return qg8_graph(adj, chunks)
 
 
 def qg8_graph_write(filename: str, graph: qg8_graph):
@@ -852,6 +866,8 @@ def qg8_graph_write(filename: str, graph: qg8_graph):
         raise IOError("Could not open file in write mode")
 
     success = 1
+    succes *= qg8_file_write_chunk(qg8f, graph.adj)
+
     for chunk in graph.chunks:
         success *= qg8_file_write_chunk(qg8f, chunk)
 
@@ -864,7 +880,7 @@ def qg8_graph_create():
     """
     Create an empty qg8_graph
     """
-    return qg8_graph([])
+    return qg8_graph(None, [])
 
 
 def qg8_graph_destroy(graph: qg8_graph):
@@ -1000,6 +1016,3 @@ def _read_int(f, b):
         return struct.unpack('<I', f.read(b))[0]
     elif b == 8:
         return struct.unpack('<Q', f.read(b))[0]
-
-
-

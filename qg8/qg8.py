@@ -310,7 +310,7 @@ def load(filename: str):
     """
     qg8_graph = qg8.core.qg8_graph_load(filename)
 
-    return QuantumGraph(*qg8_graph.chunks)
+    return QuantumGraph(*qg8_graph.adj, *qg8_graph.chunks)
 
 
 def np2array(ndarray, dtype_id):
