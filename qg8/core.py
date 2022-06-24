@@ -866,7 +866,7 @@ def qg8_graph_write(filename: str, graph: qg8_graph):
         raise IOError("Could not open file in write mode")
 
     success = 1
-    succes *= qg8_file_write_chunk(qg8f, graph.adj)
+    success *= qg8_file_write_chunk(qg8f, graph.adj)
 
     for chunk in graph.chunks:
         success *= qg8_file_write_chunk(qg8f, chunk)
