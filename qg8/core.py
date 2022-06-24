@@ -63,7 +63,7 @@ class qg8_graph():
     """
     Parent class for QG8 graphs as a container for a collection of qg8_node() objects.
     """
-    def __init__(self, adj_chunk, chunks=[]):
+    def __init__(self, adj, chunks=[]):
         self.adj = adj
         self.chunks = chunks
 

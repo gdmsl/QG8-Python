@@ -115,21 +115,19 @@ class QuantumGraph(qg8.core.qg8_graph):
         self.chunks = []
 
         if len(args) > 0:
-            A = None
+            self.adj = None
             """Initialize graph from a set of qg8_chunks or nodes"""
             for n in args:
                 if isinstance(n, qg8.core.qg8_chunk):
                     if n.tensor is None:
                         self.chunks.append(OpNode(n))
                     elif n.type == QG8_TYPE_ADJACENCY:
-                        A = AdjacencyMatrix(n)
-                        self.chunks.append(A)
+                        self.adj = AdjacencyMatrix(n)
                     else:
                         self.chunks.append(TensorNode(n))
 
             # call build edges
-            if A is not None:
-                self.build_edges(A)
+            self.build_edges()
 
     @property
     def nodes(self):
@@ -236,14 +234,16 @@ class QuantumGraph(qg8.core.qg8_graph):
         A = qg8.core.qg8_tensor([indices0, indices1], values, None, len(values), (dim, dim), 2,
                        QG8_PACKING_SPARSE_COO, itype_id, dtype_id)
 
-        adj = AdjacencyMatrix(QG8_TYPE_ADJACENCY, flags=0, string_id=None, tensor=A)
-        self.chunks.append(adj)
-        return adj
+        self.adj = AdjacencyMatrix(QG8_TYPE_ADJACENCY, flags=0, string_id=None, tensor=A)
+        return self.adj
 
-    def build_edges(self, chunk_adj):
+    def build_edges(self):
         """
         Build edges between graph nodes according to the adjacency matrix chunk_adj
         """
+        if self.adj is None:
+            return
+
         for n in self.chunks:
             n.input_nodes = []
 
