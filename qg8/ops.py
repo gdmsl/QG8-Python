@@ -138,6 +138,13 @@ def to_numpy(qg8_tensor):
     Convert qg8_tensor to dense numpy array
     """
     dtype = dtype_to_name(qg8_tensor.dtype_id)
+
+    if qg8_tensor.packing == QG8_PACKING_FULL_ROW:
+        return np.array(qg8_tensor.re, dtype=dtype).reshape(qg8_tensor.dims, order='C')
+
+    if qg8_tensor.packing == QG8_PACKING_FULL_COL:
+        return np.array(qg8_tensor.re, dtype=dtype).reshape(qg8_tensor.dims, order='F')
+
     ndarray = np.zeros(qg8_tensor.dims, dtype=dtype)
     if np.iscomplexobj(ndarray):
         ndarray[tuple(qg8_tensor.indices)] = np.asfortranarray(qg8_tensor.re)\

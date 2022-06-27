@@ -344,12 +344,8 @@ def ijv_to_qg8_tensor(indices, values, dims, packing: int = QG8_PACKING_SPARSE_C
         float32, float64, complex64, complex128
         other types will be automatically converted
     """
-    _indices = [np.array(x, int) for x in indices]
     _values = np.array(values)  # conversion to numpy array
     _dims = (*dims,)
-
-    if len(_indices) != len(dims) or len(_indices[0]) != len(_values):
-        raise ValueError("Bad tensor dimensions or unknown tensor format")
 
     if dtype is None:
         dtype = _values.dtype
@@ -358,7 +354,18 @@ def ijv_to_qg8_tensor(indices, values, dims, packing: int = QG8_PACKING_SPARSE_C
 
     itype = qg8.core._num_bytes(max(_dims))
 
-    qg8_indices = [np2array(x, itype) for x in _indices]
+    if indices is None:
+        if len(_values) != np.product(dims):
+            raise ValueError("Number of elements does not matches dimensionality")
+        qg8_indices = None
+    else:
+        _indices = [np.array(x, int) for x in indices]
+
+        if len(_indices) != len(dims) or len(_indices[0]) != len(_values):
+            raise ValueError("Bad tensor dimensions or unknown tensor format")
+
+        qg8_indices = [np2array(x, itype) for x in _indices]
+
 
     # unsigned integers
     if dtype in ('bool', 'uint8'):
@@ -468,11 +475,12 @@ def from_numpy(ndarray, **kwargs):
     ndarray = np.atleast_1d(ndarray)
     dims = list(ndarray.shape)
 
-    if 'packing' not in kwargs or kwargs['packing'] != QG8_PACKING_FULL:
+    if 'packing' not in kwargs or (not _isfullpacking(kwargs['packing'])):
         return ijv_to_qg8_tensor(ndarray.nonzero(), ndarray[ndarray != 0], dims, **kwargs)
-    else:
-        idx = np.reshape(np.indices(dims), (len(dims), ndarray.size))
-        return ijv_to_qg8_tensor(idx, ndarray.flatten(), dims, **kwargs)
+    elif kwargs['packing'] == QG8_PACKING_FULL_COL:
+        return ijv_to_qg8_tensor(None, ndarray.flatten(order='C'), dims, **kwargs)
+    else: # kwargs['packing'] == QG8_PACKING_FULL_ROW
+        return ijv_to_qg8_tensor(None, ndarray.flatten(order='F'), dims, **kwargs)
 
 
 def _is_custom_tensor(obj):
@@ -481,4 +489,3 @@ def _is_custom_tensor(obj):
             hasattr(obj[0], 'values') and
             hasattr(obj[0], 'shape')
             )
-

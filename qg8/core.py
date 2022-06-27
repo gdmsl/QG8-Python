@@ -190,13 +190,18 @@ def qg8_file_flush(qg8f: qg8_file):
             tensor = chunk.tensor
 
             # calculate skip
-            d = _dtype_to_size(tensor.dtype_id)  # number of bytes per value
-            i = _dtype_to_size(tensor.itype_id)  # number of bytes per index
+            dtype_size = _dtype_to_size(tensor.dtype_id)  # number of bytes per value
+            itype_size = _dtype_to_size(tensor.itype_id)  # number of bytes per index
             iscomplex = (tensor.dtype_id == QG8_DTYPE_COMPLEX64 or tensor.dtype_id == QG8_DTYPE_COMPLEX128)
-            num_elements = tensor.num_elements
-            rank = tensor.rank
 
-            skip = 16 + num_elements*d + (num_elements+1)*rank*i  # remaining number of bytes in chunk (after skip)
+            # tensor header + size of data + the size of the tensor
+            skip = 16 + tensor.num_elements * dtype_size + tensor.rank * itype_size
+
+            tensor_isfullpacked = (tensor.packing == QG8_PACKING_FULL_ROW or tensor.packing == QG8_PACKING_FULL_ROW)
+
+            # add the data of the indices
+            if not tensor_isfullpacked:
+                skip += tensor.num_elements * tensor.rank * itype_size
         else:
             skip = 0
 
@@ -217,13 +222,15 @@ def qg8_file_flush(qg8f: qg8_file):
 
             f.write(_uint(num_elements, QG8_DTYPE_UINT64))       # number of elements uint_64
 
-            # Write qg8_tensor_data
-            for d in range(tensor.rank):
-                if tensor.indices[d].typecode != dtype_to_char(tensor.itype_id):  # confirm itype
-                    tensor.indices[d] = array(dtype_to_char(tensor.itype_id), tensor.indices[d])
+            # write the indices unless it is trivial packing (full)
+            if not tensor_isfullpacked:
+                for d in range(tensor.rank):
+                    if tensor.indices[d].typecode != dtype_to_char(tensor.itype_id):  # confirm itype
+                        tensor.indices[d] = array(dtype_to_char(tensor.itype_id), tensor.indices[d])
 
-                f.write(tensor.indices[d].tobytes())
+                    f.write(tensor.indices[d].tobytes())
 
+            # Write the tensor data
             if tensor.re.typecode != dtype_to_char(tensor.dtype_id):  # confirm dtype
                 tensor.re = array(dtype_to_char(tensor.dtype_id), tensor.re)
 
@@ -379,6 +386,7 @@ def qg8_file_extract(iter: qg8_iter):
     else:
 
         packing = _read_int(f, 1)
+        tensor_isfullpacked = (packing == QG8_PACKING_FULL_ROW or packing == QG8_PACKING_FULL_COL)
 
         itype_id = _read_int(f, 1)
         dtype_id = _read_int(f, 1)
@@ -399,9 +407,11 @@ def qg8_file_extract(iter: qg8_iter):
         num_elements = _read_int(f, 8)
 
         indices = []
-        for j in range(rank):
-            a = array(itypecode, f.read(num_elements * i))
-            indices.append(a)
+
+        if not tensor_isfullpacked:
+            for j in range(rank):
+                a = array(itypecode, f.read(num_elements * i))
+                indices.append(a)
 
         if iscomplex:
             re = array(dtypecode, f.read(d // 2 * num_elements))
@@ -502,13 +512,23 @@ def qg8_chunk_get_flags(chunk: qg8_chunk):
 ####
 # Tensor operations
 ####
-def _check_tensor(indices, re, dims, rank):
-    if indices is None or re is None or dims is None:
+def _isfullpacking(packing: int):
+    return packing == QG8_PACKING_FULL_ROW or packing == QG8_PACKING_FULL_COL
+
+def _isfullpacked(tensor: qg8_tensor):
+    return _isfullpacking(tensor.packing)
+
+def _check_tensor(indices, re, dims, rank, packing):
+    if (indices is None) == _isfullpacking(packing):
+        raise ValueError("Invalid indices for selected packing")
+    if re is None or dims is None:
         raise ValueError("Invalid arguments")
     if rank < 1 or rank >= (1 << 16):
         raise ValueError("Invalid tensor rank")
     if any([d < 1 or d >= (1 << 64) for d in dims]):
         raise ValueError("Invalid tensor dimensions")
+    if _isfullpacking(packing) and len(re) != product(dims):
+        raise ValueError("Data should match number of elements when the packing is full!")
     return True
 
 
@@ -525,7 +545,7 @@ def qg8_tensor_create_float(indices: list, re: array, im: array, num_elements: i
         rank: int, tensor rank. Should be equal to len(dims)
         packing: int, packing code for the tensor
     """
-    _check_tensor(indices, re, dims, rank)
+    _check_tensor(indices, re, dims, rank, packing)
 
     itype_id = _num_bytes(max(dims))
     if im is not None:
@@ -556,7 +576,7 @@ def qg8_tensor_create_double(indices: list, re: array, im: array, num_elements: 
         rank: int, tensor rank. Should be equal to len(dims)
         packing: int, packing code for the tensor
     """
-    _check_tensor(indices, re, dims, rank)
+    _check_tensor(indices, re, dims, rank, packing)
 
     itype_id = _num_bytes(max(dims))
     if im is not None:
@@ -585,7 +605,7 @@ def qg8_tensor_create_uint8(indices: list, re: array, num_elements: int, dims: l
         rank: int, tensor rank. Should be equal to len(dims)
         packing: int, packing code for the tensor
     """
-    _check_tensor(indices, re, dims, rank)
+    _check_tensor(indices, re, dims, rank, packing)
 
     itype_id = _num_bytes(max(dims))
     dtype_id = QG8_DTYPE_UINT8
@@ -608,7 +628,7 @@ def qg8_tensor_create_uint16(indices: list, re: array, num_elements: int, dims: 
         rank: int, tensor rank. Should be equal to len(dims)
         packing: int, packing code for the tensor
     """
-    _check_tensor(indices, re, dims, rank)
+    _check_tensor(indices, re, dims, rank, packing)
 
     itype_id = _num_bytes(max(dims))
     dtype_id = QG8_DTYPE_UINT16
@@ -631,7 +651,7 @@ def qg8_tensor_create_uint32(indices: list, re: array, num_elements: int, dims: 
         rank: int, tensor rank. Should be equal to len(dims)
         packing: int, packing code for the tensor
     """
-    _check_tensor(indices, re, dims, rank)
+    _check_tensor(indices, re, dims, rank, packing)
 
     itype_id = _num_bytes(max(dims))
     dtype_id = QG8_DTYPE_UINT32
@@ -654,7 +674,7 @@ def qg8_tensor_create_uint64(indices: list, re: array, num_elements: int, dims: 
         rank: int, tensor rank. Should be equal to len(dims)
         packing: int, packing code for the tensor
     """
-    _check_tensor(indices, re, dims, rank)
+    _check_tensor(indices, re, dims, rank, packing)
 
     itype_id = _num_bytes(max(dims))
     dtype_id = QG8_DTYPE_UINT64
@@ -677,7 +697,7 @@ def qg8_tensor_create_int8(indices: list, re: array, num_elements: int, dims: li
         rank: int, tensor rank. Should be equal to len(dims)
         packing: int, packing code for the tensor
     """
-    _check_tensor(indices, re, dims, rank)
+    _check_tensor(indices, re, dims, rank, packing)
 
     itype_id = _num_bytes(max(dims))
     dtype_id = QG8_DTYPE_INT8
@@ -700,7 +720,7 @@ def qg8_tensor_create_int16(indices: list, re: array, num_elements: int, dims: l
         rank: int, tensor rank. Should be equal to len(dims)
         packing: int, packing code for the tensor
     """
-    _check_tensor(indices, re, dims, rank)
+    _check_tensor(indices, re, dims, rank, packing)
 
     itype_id = _num_bytes(max(dims))
     dtype_id = QG8_DTYPE_INT16
@@ -723,7 +743,7 @@ def qg8_tensor_create_int32(indices: list, re: array, num_elements: int, dims: l
         rank: int, tensor rank. Should be equal to len(dims)
         packing: int, packing code for the tensor
     """
-    _check_tensor(indices, re, dims, rank)
+    _check_tensor(indices, re, dims, rank, packing)
 
     itype_id = _num_bytes(max(dims))
     dtype_id = QG8_DTYPE_INT32
@@ -746,7 +766,7 @@ def qg8_tensor_create_int64(indices: list, re: array, num_elements: int, dims: l
         rank: int, tensor rank. Should be equal to len(dims)
         packing: int, packing code for the tensor
     """
-    _check_tensor(indices, re, dims, rank)
+    _check_tensor(indices, re, dims, rank, packing)
 
     itype_id = _num_bytes(max(dims))
     dtype_id = QG8_DTYPE_INT64

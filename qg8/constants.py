@@ -21,7 +21,7 @@
 # limitations under the License.
 
 QG8_MAGIC = "QG8XXXXX"
-QG8_VERSION = 1
+QG8_VERSION = 2
 
 QG8_MODE_READ = 1
 QG8_MODE_WRITE = 2
@@ -43,9 +43,10 @@ QG8_DTYPE_FLOAT64 = 12
 QG8_DTYPE_COMPLEX64 = 13
 QG8_DTYPE_COMPLEX128 = 14
 
-QG8_PACKING_FULL = 1
-QG8_PACKING_SPARSE_COO = 2
-QG8_PACKING_HALFHERMITIAN = 3
+QG8_PACKING_FULL_ROW = 1
+QG8_PACKING_FULL_COL = 2
+QG8_PACKING_SPARSE_COO = 3
+QG8_PACKING_HALFHERMITIAN = 4
 
 QG8_TYPE_ADJACENCY = 1
 QG8_TYPE_INPUT = 2
@@ -69,7 +70,8 @@ QG8_TYPE_OUTPUT = 19
 QG8_TYPE_SOLVEQUTIP = 33
 
 # packing types for extension library
-packing_registry = {'full': QG8_PACKING_FULL,
+packing_registry = {'full_row_major': QG8_PACKING_FULL_ROW,
+                    'full_col_major': QG8_PACKING_FULL_COL,
                     'sparse_coo': QG8_PACKING_SPARSE_COO,
                     'half-hermitian': QG8_PACKING_HALFHERMITIAN}
 
