@@ -220,7 +220,7 @@ def qg8_file_flush(qg8f: qg8_file):
             for m in tensor.dims:
                 f.write(_uint(m, tensor.itype_id))               # tensor dimensions m,n,... / uint_d[rank]
 
-            f.write(_uint(num_elements, QG8_DTYPE_UINT64))       # number of elements uint_64
+            f.write(_uint(tensor.num_elements, QG8_DTYPE_UINT64))       # number of elements uint_64
 
             # write the indices unless it is trivial packing (full)
             if not tensor_isfullpacked:

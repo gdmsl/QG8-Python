@@ -27,6 +27,7 @@ from qg8.constants import *
 import qg8.ops
 import qg8.core
 from qg8.core import qg8_graph_write as save
+from qg8.core import _isfullpacking
 
 
 class QG8Node(qg8.core.qg8_chunk):
